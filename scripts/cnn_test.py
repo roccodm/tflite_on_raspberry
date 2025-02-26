@@ -1,5 +1,19 @@
+# Released under CC0 License. Author: Rocco De Marco - CNR IRBIM Ancona  
+#  
+# This script evaluates the throughput and classification accuracy of a TFLite model  
+# using a dataset of spectrogram images. It computes metrics such as true positives (TP),  
+# false positives (FP), and inference speed (images/second).  
+#  
+# Usage: python3 cnn_test.py <model_path> <test_images_path> <num_thread>  
+#   - model_path: Path to the TFLite model (e.g., "models/optimized_model_1.tflite").  
+#   - test_images_path: Directory containing spectrogram images (e.g., "spectrogram/").  
+#   - num_thread: Number of threads for the TFLite interpreter (1-8).  
+#  
+# Output: Throughput (images/second) and confusion matrix metrics, printed to the console.  
+
 from PIL import Image
 import numpy as np
+import os
 import sys
 from sklearn.metrics import confusion_matrix
 import glob
@@ -8,9 +22,6 @@ import time
 
 # Constants
 IMAGE_SIZE = (300, 150)
-# NFILES indicates the number of POSITIVE spectrogram to be loaded in each test set loop
-# Note that the same number of NEGATIVE images will be loaded
-# RPi Zero 2 W can manage a maximum of about 800 images in a single task
 NFILES = 206
 
 def get_positive_images_number(directory_path):   # Count the number of positive images in the directory.
@@ -36,7 +47,7 @@ def load_images(directory_path, left_idx, right_idx):
     # Load negative images (label 0)
     negative_files = glob.glob(f"{directory_path}/NEG*.png")[left_idx:right_idx]
     load_and_preprocess(negative_files, label=0)
-    print(f"*** Loaded {n_positives} positives and {len(negative_files)} negatives spectrogram images")
+    print(f"*** Loaded {n_positives} positives and {len(negative_files)} negatives")
     return np.array(images) / 255, np.array(labels)
 
 def run_test(model_path, x_test, y_test, num_thread): # Run inference using a specified TensorFlow Lite model.
@@ -63,14 +74,13 @@ def run_test(model_path, x_test, y_test, num_thread): # Run inference using a sp
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Usage: python script.py <model_path> <test_images_path> <num_thread>")
+        print(f"Usage: python {sys.argv[0]} <model_path> <test_images_path> <num_thread>")
         sys.exit(1)
 
     model_path, test_images_path, num_thread = sys.argv[1], sys.argv[2], int(sys.argv[3])
 
     n_positive = get_positive_images_number(test_images_path)
     image_blocks = split_indices(n_positive, NFILES)
-    results = []
 
     print ("*** Processing model:", model_path, "with", num_thread, "cores")
     i = 0
@@ -80,10 +90,8 @@ if __name__ == "__main__":
             del(x_test)
         x_test, y_test = load_images(test_images_path, min(block), max(block) + 1)
         tn, fp, fn, tp, nimages, p_time, it_sec = run_test(model_path, x_test, y_test, num_thread)
-        result = {"model": model_path, "block":i,  "tp":tp, "tn":tn, "fp":fp, "fn":fn, 
+        results = {"model": model_path, "block":i,  "tp":tp, "tn":tn, "fp":fp, "fn":fn, 
                "nimages":nimages, "process_time":p_time, "it_sec": it_sec}
-        results.append(result)
         print (f"*** elapsed {nimages} images in {p_time} seconds ({it_sec}it/sec)")
         i += 1
-    print ("*** raw results:")
-    print (results)
+        print ("*** raw results:", results)
