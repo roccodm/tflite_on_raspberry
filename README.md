@@ -81,5 +81,3 @@ python3 latency_test.py models/optimized_model_1.tflite 100
 - Spectrogram images should be placed inside `spectrogram/` and follow the naming convention (`POS*.png` for positive samples and `NEG*.png` for negative samples).
 - Results are printed to the console and include key performance indicators for analysis.
 
-These scripts provide a comprehensive performance assessment for TinyML models deployed on resource-constrained edge devices.
-
